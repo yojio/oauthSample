@@ -1,0 +1,11 @@
+# app.yaml
+
+application: sample-app
+version: 0
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+handlers:
+- url: /.*
+  script: main.app
