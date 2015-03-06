@@ -39,3 +39,14 @@ CONFIG['facebook'] = {
     'scope': ['public_profile', 'email', 'user_friends'],
 }
 
+#
+# linkedin接続用Config
+#
+CONFIG['linkedin'] = {
+    'consumer_key': 'XXXXXXXXXXXX',
+    'consumer_secret': 'XXXXXXXXXXXX',
+    'auth_uri': 'https://www.linkedin.com/uas/oauth2/authorization',
+    'token_uri': 'https://www.linkedin.com/uas/oauth2/accessToken',
+    'scope': ['r_basicprofile', 'r_emailaddress', 'r_network'],
+    'state': 'XXXXXXXXXXXX'
+}

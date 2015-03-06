@@ -23,6 +23,7 @@ class SocialFactory(object):
         self.google = GoogleUser()
         self.facebook = FacebookUser()
         self.twitter = TwitterUser()
+        self.linkedin = LinkedinUser()
 
     def get_instance(self, provider_name, config):
 
@@ -37,6 +38,10 @@ class SocialFactory(object):
         elif provider_name == "twitter":
             self.twitter.set_config(config)
             return self.twitter
+
+        elif provider_name == "linkedin":
+            self.linkedin.set_config(config)
+            return self.linkedin
 
         else:
             raise Exception("provider not found")
@@ -219,6 +224,120 @@ class FacebookUser(SocialApi):
 
         return friends.values()
 
+# linkedin
+class LinkedinUser(SocialApi):
+
+    # authorize
+    # return auth_url, flow
+    def authorize(self, handler, callback_url):
+
+        data = dict(
+                    response_type = 'code',
+                    client_id = self.config.get('consumer_key'),
+                    redirect_uri = callback_url,
+                    state = self.config.get('state'),
+                    scope = " ".join(self.config.get('scope'))
+                )
+
+        handler.session['callback_url'] = callback_url
+        return self.config.get('auth_uri') + '?' + urllib.urlencode(data)
+
+    # authorize-callback
+    # return credentials
+    def callback(self, handler):
+
+        callback_url = str(handler.session.pop('callback_url'))
+
+        code = handler.request.get('code')
+        state = handler.request.get('state')
+        if state != self.config.get('state'):
+            raise Exception('wrong state error!')
+
+        error = handler.request.get('error')
+        error_description = handler.request.get('error_description')
+
+        data = dict(
+                    grant_type = 'authorization_code',
+                    client_id = self.config.get('consumer_key'),
+                    client_secret = self.config.get('consumer_secret'),
+                    code = code,
+                    redirect_uri = callback_url
+                    )
+
+        response = urllib.urlopen(self.config.get('token_uri') + '?' + urllib.urlencode(data))
+
+        ret = json.loads(response.read())
+        return {
+                'user_id':"me",
+                'credentials':json.dumps({
+                                         'access_token':ret.get('access_token'),
+                                         'expires_in':ret.get('expires_in'),
+                                         })
+               }
+
+    # api caller
+    def __call_api(self, credentials, user_id, query = ""):
+
+        if user_id == "me":
+            user_id = "~"
+
+        api = "https://api.linkedin.com/v1/people/%s%s?format=json" % (user_id,query)
+
+        req = urllib2.Request(api)
+        req.add_header('Host', "api.linkedin.com")
+        req.add_header('Connection', "Keep-Alive")
+        req.add_header('Authorization', 'Bearer ' + credentials.get('access_token'))
+        req.add_header('x-li-format', 'json')
+
+        response = urllib2.urlopen(req)
+
+        # TODO error case
+        if response.code != 200:
+            raise Exception("authorize error:%d" % response.code)
+
+        response = json.loads(response.read())
+
+        return response
+
+    # profile
+    def get_profile(self, credentials_str, user_id = "me"):
+
+
+        query = ":(id,formatted-name,picture-url)"
+        # query = ""
+
+        credentials = json.loads(credentials_str)
+
+        # profile
+        response = self.__call_api(
+                                   credentials = credentials
+                                   , user_id = user_id
+                                   , query = query
+                                   )
+
+        return {
+                'user_id':response['id'],
+                'name':response['formattedName'],
+                'image':response['pictureUrl'],
+                }
+
+    # friends
+    def get_friends(self, credentials_str, user_id = "me"):
+
+        query = ":(connections)"
+        # query = ""
+
+        credentials = json.loads(credentials_str)
+
+        # profile
+        response = self.__call_api(
+                                   credentials = credentials
+                                   , user_id = user_id
+                                   , query = query
+                                   )
+
+        return [s['id'] for s in response['connections']['values']]
+
 # normal authentication OAuth1.0A
 class TwitterUser(SocialApi):
 
@@ -328,32 +447,32 @@ class TwitterApp(object) :
     # return access_token
     def authorize(self):
 
-            credential = base64.b64encode("%s:%s" %
-                                          (
-                                           urllib2.quote(self.config.get('consumer_key')),
-                                           urllib2.quote(self.config.get('consumer_secret'))
-                                          )
-                                        )
+        credential = base64.b64encode("%s:%s" %
+                                     (
+                                       urllib2.quote(self.config.get('consumer_key')),
+                                       urllib2.quote(self.config.get('consumer_secret'))
+                                     )
+                                     )
 
-            data = urllib.urlencode(
-                             {
-                              'grant_type': 'client_credentials'
-                             }
-                            )
+        data = urllib.urlencode(
+                         {
+                          'grant_type': 'client_credentials'
+                         }
+                        )
 
-            req = urllib2.Request(self.config.get('bearer_token_url'))
-            req.add_header('Authorization', 'Basic %s' % credential)
-            req.add_header('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8')
+        req = urllib2.Request(self.config.get('bearer_token_url'))
+        req.add_header('Authorization', 'Basic %s' % credential)
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8')
 
-            response = urllib2.urlopen(req, data)
+        response = urllib2.urlopen(req, data)
 
-            # TODO error case
-            if response.code != 200:
-                raise Exception("authorize error:%d" % response.code)
+        # TODO error case
+        if response.code != 200:
+            raise Exception("authorize error:%d" % response.code)
 
-            json_response = json.loads(response.read())
+        json_response = json.loads(response.read())
 
-            return json_response['access_token']
+        return json_response['access_token']
 
     # search friends
     def search_friends(self, access_token, user_id = None, screen_name = None):

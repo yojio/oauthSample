@@ -12,7 +12,6 @@ from config import CONFIG
 import models
 import social
 
-
 twitter_app = social.TwitterApp(CONFIG['twitterapp'])
 social_factory = social.SocialFactory()
 
@@ -134,7 +133,7 @@ class Home(webapp2.RequestHandler):
         if user:
             self.response.write('●&nbsp')
             self.response.write(user.provider_name)
-            self.response.write('Authenticated<br />')
+            self.response.write('&nbspAuthenticated<br />')
 
         common = models.Common.query().get()
         if common:
@@ -165,8 +164,14 @@ class Home(webapp2.RequestHandler):
         if user and user.provider_name == "facebook":
             self.response.write('&nbsp&nbsp-API call <a href="friends/facebook">friend(facebook)</a>.<br />')
             self.response.write('&nbsp&nbsp-API call <a href="profile/facebook">profile(facebook)</a>.<br />')
-
         self.response.write('<br />')
+
+        self.response.write('Login with <a href="login/linkedin">LinkedIn</a>.<br />')
+        if user and user.provider_name == "linkedin":
+            self.response.write('&nbsp&nbsp-API call <a href="friends/linkedin">friend(linkedin)</a>.<br />')
+            self.response.write('&nbsp&nbsp-API call <a href="profile/linkedin">profile(linkedin)</a>.<br />')
+        self.response.write('<br />')
+
         self.response.write('<br />')
         self.response.write('<a href="delete/common">delete TwitterApp-Credentials</a>.<br />')
         self.response.write('<a href="delete/user">delete user-Credentials</a>.<br />')
